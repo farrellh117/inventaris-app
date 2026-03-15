@@ -1,10 +1,6 @@
-import { Text, View, StyleSheet, TouchableOpacity } from "react-native";
-import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { Text, View, StyleSheet } from "react-native";
 
 export default function Index() {
-  const router = useRouter();
-  
   return (
     <View style={styles.container}>
       <Text>Dasboard</Text>
