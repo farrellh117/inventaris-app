@@ -1,29 +1,35 @@
 import { Stack, useRouter } from "expo-router";
 import { useEffect } from "react";
-import { AuthProvider } from "../context/AuthContext";
+import { AuthProvider, useAuth } from "../context/AuthContext";
 
-export default function RootLayout() {
+function RootLayoutNav() {
+  const { user } = useAuth();
   const router = useRouter();
-  let isAuth = false;
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (!isAuth) {
-        router.replace("/(auth)/login");
-      } else {
+      if (user) {
         router.replace("/(tabs)");
+      } else {
+        router.replace("/(auth)/login");
       }
     }, 0);
 
     return () => clearTimeout(timeout);
-  }, [isAuth, router]);
+  }, [user, router]);
 
   return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
     <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(auth)" />
-      </Stack>
+      <RootLayoutNav />
     </AuthProvider>
   );
 }
