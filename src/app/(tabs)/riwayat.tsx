@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase/client";
@@ -11,7 +11,10 @@ export default function Riwayat() {
   const [loading, setLoading] = useState(true);
   const [dataRiwayat, setDataRiwayat] = useState<any[]>([]);
 
-  const fetchRiwayat = async () => {
+  // Menggunakan useCallback untuk menghindari warning dependency dan re-render tidak perlu
+  const fetchRiwayat = useCallback(async () => {
+    if (!user?.id) return;
+    
     setLoading(true);
     try {
       const statusFilter = activeTab === "dipinjam" ? "dipinjam" : "dikembalikan";
@@ -39,11 +42,18 @@ export default function Riwayat() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, user?.id]); // Dependency fungsi fetch
 
   useEffect(() => {
     fetchRiwayat();
-  }, [activeTab]);
+  }, [fetchRiwayat]); // Sekarang fetchRiwayat aman masuk sini
+
+  // Helper untuk merapikan format tanggal (YYYY-MM-DD -> DD MMM YYYY)
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-";
+    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+    return new Date(dateString).toLocaleDateString('id-ID', options);
+  };
 
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity style={styles.card} activeOpacity={0.7}>
@@ -69,7 +79,9 @@ export default function Riwayat() {
           <Ionicons name="calendar-outline" size={14} color="#666" />
           <Text style={styles.dateText}>
             {activeTab === "dipinjam" ? "Batas Kembali: " : "Dipinjam: "}
-            <Text style={{ fontWeight: '600' }}>{activeTab === "dipinjam" ? item.tanggal_rencana_kembali : item.tanggal_peminjaman}</Text>
+            <Text style={{ fontWeight: '600', color: '#333' }}>
+              {formatDate(activeTab === "dipinjam" ? item.tanggal_rencana_kembali : item.tanggal_peminjaman)}
+            </Text>
           </Text>
         </View>
       </View>
@@ -78,12 +90,10 @@ export default function Riwayat() {
 
   return (
     <View style={styles.container}>
-      {/* HEADER - Konsisten dengan halaman lain */}
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
         <View style={styles.headerContent}>
           <Text style={styles.pageTitle}>Riwayat Saya</Text>
           
-          {/* TAB NAVIGATION - Style diperhalus */}
           <View style={styles.tabBar}>
             <TouchableOpacity 
               style={[styles.tabButton, activeTab === "dipinjam" && styles.tabActive]}
@@ -102,7 +112,7 @@ export default function Riwayat() {
         </View>
       </SafeAreaView>
 
-      {loading ? (
+      {loading && dataRiwayat.length === 0 ? (
         <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
       ) : (
         <FlatList
@@ -111,15 +121,23 @@ export default function Riwayat() {
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl 
+              refreshing={loading} 
+              onRefresh={fetchRiwayat} 
+              colors={["#007AFF"]} 
+              tintColor="#007AFF" 
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons name="list-outline" size={60} color="#CCC" />
               <Text style={styles.emptyTitle}>Tidak ada data</Text>
-              <Text style={styles.emptySub}>Belum ada riwayat {activeTab} untuk akunmu.</Text>
+              <Text style={styles.emptySub}>
+                Belum ada riwayat {activeTab === "dipinjam" ? "peminjaman aktif" : "pengembalian"} untuk akunmu.
+              </Text>
             </View>
           }
-          refreshing={loading}
-          onRefresh={fetchRiwayat}
         />
       )}
     </View>

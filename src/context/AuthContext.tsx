@@ -1,80 +1,115 @@
-import { createContext, ReactNode, useContext, useState } from "react";
+import { createContext, ReactNode, useContext, useState, useEffect } from "react";
 import { supabase } from "../lib/supabase/client";
+import { Session } from "@supabase/supabase-js";
 
-// 1. DAFTAR DATA: Menentukan data apa saja yang harus ada pada profil 'User'
-export interface User {
+export interface UserProfile {
   id: string;
   email?: string;
-  name?: string;
-  role?: 'admin' | 'staff';
-  profileImage?: string;
+  username?: string;
+  nama_lengkap?: string;
+  role?: 'admin' | 'user';
 }
 
-// 2. DAFTAR FUNGSI: Menentukan fitur apa saja yang bisa dipakai halaman lain (data 'User' & fungsi 'signUp')
 interface AuthContextType {
-  user: User | null;
-  signUp: (email: string, password: string) => Promise<void>;
+  user: UserProfile | null;
+  session: Session | null;
+  signUp: (email: string, password: string, username: string, fullName: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  loading: boolean;
 }
 
-// 3. WADAH UTAMA: Membuat tempat penyimpanan data login agar bisa diakses semua halaman
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// 4. PENGATUR PUSAT: Komponen yang mengatur semua urusan masuk/keluar akun
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  // Variable untuk menyimpan data user yang sedang login (awalnya null)
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fungsi untuk mengambil data profil tambahan dari tabel public.users
+  const fetchProfile = async (userId: string, email?: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
+
+      if (!error && data) {
+        setUser({
+          id: userId,
+          email: email,
+          username: data.username,
+          nama_lengkap: data.nama_lengkap,
+          role: data.role,
+        });
+      } else {
+        // Fallback jika profil belum ada di public.users
+        setUser({ id: userId, email: email });
+      }
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+    }
+  };
+
+  useEffect(() => {
+    // Cek sesi saat aplikasi dibuka
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        fetchProfile(session.user.id, session.user.email);
+      }
+      setLoading(false);
+    });
+
+    // Pantau perubahan status (Login/Logout)
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      if (session?.user) {
+        await fetchProfile(session.user.id, session.user.email);
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-
-    if (data.user) {
-      setUser({
-        id: data.user.id,
-        email: data.user.email,
-      });
-    }
+    if (data.user) await fetchProfile(data.user.id, data.user.email);
   };
 
-  const signUp = async (email: string, password: string) => {
-    // Perintah untuk mendaftarkan email & password ke server Supabase
-    const {data, error} = await supabase.auth.signUp({
+  const signUp = async (email: string, password: string, username: string, fullName: string) => {
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: { username: username, nama_lengkap: fullName },
+      },
     });
-
-    // Jika error (e.g email sudah terdaftar), kirim pesan error ke halaman signup
     if (error) throw error;
-
-    // Jika berhasil, data user baru akan muncul di console log
-    if (data.user) {
-      setUser({
-        id: data.user.id,
-        email: data.user.email,
-      })
-    }
+    if (data.user) await fetchProfile(data.user.id, data.user.email);
   };
 
-  // 5. PENYEBAR DATA: Perintah agar 'User' dan 'signUp' bisa dipakai oleh halaman di dalamnya (children)
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, signUp, signIn }}>
+    <AuthContext.Provider value={{ user, session, signUp, signIn, signOut, loading }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// 6. TOMBOL PANGGIL: Caracepat bagi halaman lain (e.g signup.tsx) untuk mengambil fungsi di atas
 export const useAuth = () => {
   const context = useContext(AuthContext);
-
-  if (context === undefined) {
-    throw new Error("Must be inside the provider");
-  }
-
+  if (context === undefined) throw new Error("useAuth must be used within an AuthProvider");
   return context;
-}
+};

@@ -13,13 +13,16 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) return Alert.alert("Error", "Isi email dan password");
+    if (!email || !password) return Alert.alert("Error", "Masukkan email dan password");
+    
     setIsLoading(true);
     try {
       await signIn(email, password);
+      // _layout.tsx akan otomatis mengarahkan ke /(tabs) karena state 'user' berubah
     } catch (error: any) {
-      console.error("ERROR:", error.message);
-      Alert.alert("Login Gagal", error.message || "Email atau password salah");
+      let msg = "Email atau password salah";
+      if (error.message === "Invalid login credentials") msg = "Email atau password salah";
+      Alert.alert("Login Gagal", msg);
     } finally {
       setIsLoading(false);
     }
@@ -27,18 +30,15 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"} 
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
           <View style={styles.header}>
             <View style={styles.logoContainer}>
               <Ionicons name="barcode-outline" size={60} color="#007AFF" />
             </View>
             <Text style={styles.title}>Inventory Manager</Text>
-            <Text style={styles.subTitle}>Barcode-based asset tracking</Text>
+            <Text style={styles.subTitle}>Silakan masuk ke akun Anda</Text>
           </View>
 
           <View style={styles.form}>
@@ -66,12 +66,12 @@ export default function LoginScreen() {
               />
             </View>
 
-            <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={isLoading}>
-              {isLoading ? (
-                <ActivityIndicator color={"#fff"} />
-              ) : (
-                <Text style={styles.buttonText}>Login</Text>
-              )}
+            <TouchableOpacity 
+              style={[styles.button, isLoading && { opacity: 0.8 }]} 
+              onPress={handleLogin} 
+              disabled={isLoading}
+            >
+              {isLoading ? <ActivityIndicator color={"#fff"} /> : <Text style={styles.buttonText}>Login</Text>}
             </TouchableOpacity>
           </View>
 
@@ -91,16 +91,16 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#fff"
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 25,
+    padding: 25
   },
   header: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: 40
   },
   logoContainer: {
     width: 100,
@@ -110,21 +110,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
+    elevation: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
-    elevation: 3,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#1A1A1A",
+    color: "#1A1A1A"
   },
   subTitle: {
     fontSize: 14,
     color: "#888",
-    marginTop: 5,
+    marginTop: 5
   },
   form: {
     width: "100%",
@@ -142,7 +142,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
     padding: 16,
     borderRadius: 12,
-    marginBottom: 20,
     borderWidth: 1,
     borderColor: "#E9ECEF",
     fontSize: 16,
@@ -153,29 +152,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     marginTop: 15,
-    shadowColor: "#007AFF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
     elevation: 5,
   },
   buttonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "bold"
   },
   signupContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 30,
+    marginTop: 30
   },
   signupText: {
     color: "#666",
-    fontSize: 14,
+    fontSize: 14
   },
   signupLink: {
     color: "#007AFF",
     fontSize: 14,
-    fontWeight: "bold"
+    fontWeight: "bold",
   },
 });

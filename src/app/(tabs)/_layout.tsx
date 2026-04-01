@@ -8,7 +8,13 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: "#007AFF",
         tabBarInactiveTintColor: "gray",
-        tabBarStyle: { paddingBottom: 5, height: 60 },
+        tabBarStyle: { 
+          paddingBottom: 5, 
+          height: 60,
+          backgroundColor: "#FFFFFF",
+          borderTopWidth: 1,
+          borderTopColor: "#EEE"
+        },
       }}
     >
       <Tabs.Screen
@@ -40,7 +46,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="peminjaman"
         options={{
-          title: "Peminjaman",
+          title: "Pinjam",
           tabBarIcon: ({color, size, focused}) => (
             <Ionicons
               name={focused ? "arrow-up-circle" : "arrow-up-circle-outline"}
@@ -50,10 +56,12 @@ export default function TabsLayout() {
           ),
         }}
       />
+      {/* Kamu bisa sembunyikan Tab Pengembalian jika ingin diletakkan di dalam menu lain, 
+          tapi sementara kita biarkan ada sesuai kodinganmu */}
       <Tabs.Screen
         name="pengembalian"
         options={{
-          title: "Pengembalian",
+          title: "Kembali",
           tabBarIcon: ({color, size, focused}) => (
             <Ionicons
               name={focused ? "arrow-down-circle" : "arrow-down-circle-outline"}
@@ -70,6 +78,21 @@ export default function TabsLayout() {
           tabBarIcon: ({color, size, focused}) => (
             <Ionicons
               name={focused ? "receipt" : "receipt-outline"}
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+      
+      {/* INI YANG BARU: DAFTARKAN PROFILE DISINI */}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profil",
+          tabBarIcon: ({color, size, focused}) => (
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
               size={size}
               color={color}
             />
