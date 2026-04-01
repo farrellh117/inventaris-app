@@ -1,114 +1,127 @@
-import React from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-
-// Data Dummy Riwayat (Timeline)
-const DUMMY_HISTORY = [
-  {
-    id: "1",
-    type: "Kembali",
-    aset: "MacBook Pro M2",
-    user: "Budi Sudarsono",
-    waktu: "10:45",
-    tanggal: "Hari Ini",
-    kondisi: "Bagus",
-    icon: "arrow-down-circle",
-    color: "#34C759",
-  },
-  {
-    id: "2",
-    type: "Pinjam",
-    aset: "Proyektor Epson",
-    user: "Siti Aminah",
-    waktu: "08:20",
-    tanggal: "Hari Ini",
-    kondisi: null,
-    icon: "arrow-up-circle",
-    color: "#007AFF",
-  },
-  {
-    id: "3",
-    type: "Kembali",
-    aset: "iPad Air 5",
-    user: "Andi Wijaya",
-    waktu: "16:00",
-    tanggal: "Kemarin",
-    kondisi: "Lecet Sedikit",
-    icon: "arrow-down-circle",
-    color: "#34C759",
-  },
-  {
-    id: "4",
-    type: "Pinjam",
-    aset: "MacBook Pro M2",
-    user: "Budi Sudarsono",
-    waktu: "09:00",
-    tanggal: "Kemarin",
-    icon: "arrow-up-circle",
-    color: "#007AFF",
-  },
-];
+import { supabase } from "../../lib/supabase/client";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Riwayat() {
-  const renderTimelineItem = ({ item, index }: { item: typeof DUMMY_HISTORY[0]; index: number }) => (
-    <View style={styles.timelineRow}>
-      {/* Kolom Kiri: Garis & Ikon */}
-      <View style={styles.timelineLeft}>
-        <View style={[styles.iconCircle, { backgroundColor: item.color + "15" }]}>
-          <Ionicons name={item.icon as any} size={22} color={item.color} />
-        </View>
-        {index !== DUMMY_HISTORY.length - 1 && <View style={styles.verticalLine} />}
-      </View>
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<"dipinjam" | "selesai">("dipinjam");
+  const [loading, setLoading] = useState(true);
+  const [dataRiwayat, setDataRiwayat] = useState<any[]>([]);
 
-      {/* Kolom Kanan: Detail Konten */}
-      <View style={styles.timelineContent}>
+  const fetchRiwayat = async () => {
+    setLoading(true);
+    try {
+      const statusFilter = activeTab === "dipinjam" ? "dipinjam" : "dikembalikan";
+      
+      const { data, error } = await supabase
+        .from("peminjaman")
+        .select(`
+          transaksi_id,
+          tanggal_peminjaman,
+          tanggal_rencana_kembali,
+          status_peminjaman,
+          aset (
+            nama_barang,
+            kode_barcode
+          )
+        `)
+        .eq("user_id", user?.id)
+        .eq("status_peminjaman", statusFilter)
+        .order("tanggal_peminjaman", { ascending: false });
+
+      if (error) throw error;
+      setDataRiwayat(data || []);
+    } catch (error) {
+      console.error("Error fetching riwayat:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRiwayat();
+  }, [activeTab]);
+
+  const renderItem = ({ item }: { item: any }) => (
+    <TouchableOpacity style={styles.card} activeOpacity={0.7}>
+      <View style={[styles.cardIcon, { backgroundColor: activeTab === "dipinjam" ? "#FFF3E0" : "#E8F5E9" }]}>
+        <Ionicons 
+          name={activeTab === "dipinjam" ? "time" : "checkmark-circle"} 
+          size={24} 
+          color={activeTab === "dipinjam" ? "#EF6C00" : "#2E7D32"} 
+        />
+      </View>
+      <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
-          <Text style={[styles.typeText, { color: item.color }]}>{item.type.toUpperCase()}</Text>
-          <Text style={styles.timeText}>{item.waktu} • {item.tanggal}</Text>
-        </View>
-        
-        <Text style={styles.asetText}>{item.aset}</Text>
-        
-        <View style={styles.userDetail}>
-          <Ionicons name="person-outline" size={14} color="#666" />
-          <Text style={styles.userName}>{item.user}</Text>
-        </View>
-
-        {item.kondisi && (
-          <View style={styles.conditionBox}>
-            <Text style={styles.conditionLabel}>Kondisi: </Text>
-            <Text style={styles.conditionValue}>{item.kondisi}</Text>
+          <Text style={styles.asetName} numberOfLines={1}>{item.aset?.nama_barang || "Aset Tidak Diketahui"}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: activeTab === "dipinjam" ? "#FFF9F0" : "#F2FBF4" }]}>
+            <Text style={[styles.statusText, { color: activeTab === "dipinjam" ? "#FF9500" : "#34C759" }]}>
+              {activeTab === "dipinjam" ? "Aktif" : "Selesai"}
+            </Text>
           </View>
-        )}
+        </View>
+        <Text style={styles.kodeText}>{item.aset?.kode_barcode}</Text>
+        
+        <View style={styles.dateRow}>
+          <Ionicons name="calendar-outline" size={14} color="#666" />
+          <Text style={styles.dateText}>
+            {activeTab === "dipinjam" ? "Batas Kembali: " : "Dipinjam: "}
+            <Text style={{ fontWeight: '600' }}>{activeTab === "dipinjam" ? item.tanggal_rencana_kembali : item.tanggal_peminjaman}</Text>
+          </Text>
+        </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      {/* HEADER (Konsisten dengan halaman lain) */}
+      {/* HEADER - Konsisten dengan halaman lain */}
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
         <View style={styles.headerContent}>
-          <Text style={styles.pageTitle}>Riwayat & Status</Text>
-          <Text style={styles.subtitle}>Log aktivitas peminjaman aset</Text>
+          <Text style={styles.pageTitle}>Riwayat Saya</Text>
+          
+          {/* TAB NAVIGATION - Style diperhalus */}
+          <View style={styles.tabBar}>
+            <TouchableOpacity 
+              style={[styles.tabButton, activeTab === "dipinjam" && styles.tabActive]}
+              onPress={() => setActiveTab("dipinjam")}
+            >
+              <Text style={[styles.tabText, activeTab === "dipinjam" && styles.tabTextActive]}>Sedang Dipinjam</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.tabButton, activeTab === "selesai" && styles.tabActive]}
+              onPress={() => setActiveTab("selesai")}
+            >
+              <Text style={[styles.tabText, activeTab === "selesai" && styles.tabTextActive]}>Selesai</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
 
-      {/* LIST TIMELINE */}
-      <FlatList
-        data={DUMMY_HISTORY}
-        keyExtractor={(item) => item.id}
-        renderItem={renderTimelineItem}
-        contentContainerStyle={styles.listPadding}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="time-outline" size={50} color="#CCC" />
-            <Text style={styles.emptyText}>Belum ada riwayat</Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
+      ) : (
+        <FlatList
+          data={dataRiwayat}
+          keyExtractor={(item) => item.transaksi_id.toString()}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="list-outline" size={60} color="#CCC" />
+              <Text style={styles.emptyTitle}>Tidak ada data</Text>
+              <Text style={styles.emptySub}>Belum ada riwayat {activeTab} untuk akunmu.</Text>
+            </View>
+          }
+          refreshing={loading}
+          onRefresh={fetchRiwayat}
+        />
+      )}
     </View>
   );
 }
@@ -116,119 +129,132 @@ export default function Riwayat() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#F8F9FA"
   },
   headerSafeArea: {
     backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderColor: "#EEE",
+    borderColor: "#EEE"
   },
   headerContent: {
     paddingHorizontal: 20,
     paddingVertical: 15,
-    minHeight: 90,
-    justifyContent: "center",
+    minHeight: 110, // Sedikit lebih tinggi untuk menampung title + tabs
+    justifyContent: 'center'
   },
   pageTitle: {
     fontSize: 22,
     fontWeight: "bold",
     color: "#1A1A1A",
+    marginBottom: 12
   },
-  subtitle: {
-    fontSize: 13,
-    color: "#666",
-  },
-  listPadding: {
-    padding: 20,
-  },
-  timelineRow: {
+  tabBar: {
     flexDirection: "row",
-    minHeight: 100,
+    backgroundColor: "#F1F3F5",
+    borderRadius: 12,
+    padding: 4
   },
-  timelineLeft: {
-    alignItems: "center",
-    marginRight: 15,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1,
-  },
-  verticalLine: {
+  tabButton: {
     flex: 1,
-    width: 2,
-    backgroundColor: "#EAEAEA",
-    marginVertical: -5,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: 10
   },
-  timelineContent: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 15,
-    marginBottom: 20,
+  tabActive: {
+    backgroundColor: "#FFF",
     elevation: 2,
     shadowColor: "#000",
     shadowOpacity: 0.05,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 3
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#666"
+  },
+  tabTextActive: {
+    color: "#007AFF",
+  },
+  listContent: {
+    padding: 20,
+    paddingBottom: 40
+  },
+  card: {
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    padding: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+  },
+  cardIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15
+  },
+  cardContent: {
+    flex: 1,
   },
   cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2
   },
-  typeText: {
-    fontSize: 10,
-    fontWeight: "bold",
-    letterSpacing: 0.5,
-  },
-  timeText: {
-    fontSize: 11,
-    color: "#999",
-  },
-  asetText: {
+  asetName: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
+    color: "#1A1A1A",
+    flex: 1,
+    marginRight: 10
   },
-  userDetail: {
+  kodeText: {
+    fontSize: 12,
+    color: "#007AFF",
+    fontWeight: '500',
+    marginBottom: 6
+  },
+  dateRow: {
     flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
+    alignItems: "center"
   },
-  userName: {
-    fontSize: 13,
+  dateText: {
+    fontSize: 12,
     color: "#666",
-    marginLeft: 5,
+    marginLeft: 6
   },
-  conditionBox: {
-    flexDirection: "row",
-    backgroundColor: "#F8F9FA",
-    padding: 8,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: "#34C759",
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6
   },
-  conditionLabel: {
-    fontSize: 11,
-    color: "#888",
+  statusText: {
+    fontSize: 10,
+    fontWeight: "bold"
   },
-  conditionValue: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#444",
-  },
-  emptyContainer: {
+  emptyState: {
     alignItems: "center",
-    marginTop: 100,
+    marginTop: 80
   },
-  emptyText: {
-    marginTop: 10,
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#444",
+    marginTop: 15
+  },
+  emptySub: {
+    fontSize: 14,
     color: "#999",
+    textAlign: "center",
+    paddingHorizontal: 40,
+    marginTop: 5
   },
 });
