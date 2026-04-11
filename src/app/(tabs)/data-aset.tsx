@@ -1,29 +1,90 @@
-import { useState } from "react";
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Image } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  FlatList, 
+  TextInput, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  RefreshControl 
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-
-const DUMMY_ASSETS = [
-  { id: '1', nama: 'MacBook Pro M2', kode: 'AST-001', status: 'Tersedia', lokasi: 'Ruang IT', foto: 'https://via.placeholder.com/100' },
-  { id: '2', nama: 'Proyektor Epson', kode: 'AST-002', status: 'Dipinjam', lokasi: 'Meeting Room A', foto: 'https://via.placeholder.com/100' },
-  { id: '3', nama: 'Kursi Kerja Ergo', kode: 'AST-003', status: 'Tersedia', lokasi: 'Lantai 2', foto: 'https://via.placeholder.com/100' },
-];
+import { supabase } from "@/src/lib/supabase/client";
+import { useAuth } from "@/src/context/AuthContext";
+// 1. IMPORT SUDAH BENAR DI SINI
+import { useRouter } from "expo-router";
 
 export default function DataAset() {
+  const { user } = useAuth(); 
+  // 2. DEFINISI ROUTER YANG BENAR
+  const router = useRouter();
+
   const [search, setSearch] = useState("");
+  const [assets, setAssets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAssets = useCallback(async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from("aset")
+        .select(`
+          *,
+          kategori (nama_kategori)
+        `)
+        .order("nama_barang", { ascending: true });
+
+      if (search) {
+        query = query.ilike("nama_barang", `%${search}%`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setAssets(data || []);
+    } catch (error) {
+      console.error("Error fetching assets:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [search]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchAssets();
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [search, fetchAssets]);
 
   const renderAssetItem = ({ item }: any) => (
     <TouchableOpacity style={styles.assetCard} activeOpacity={0.7}>
-      <Image source={{ uri: item.foto }} style={styles.assetImage} />
+      <View style={styles.imagePlaceholder}>
+        <Ionicons name="cube-outline" size={30} color="#007AFF" />
+      </View>
       <View style={styles.assetInfo}>
         <View style={styles.assetHeader}>
-          <Text style={styles.assetName} numberOfLines={1}>{item.nama}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: item.status === 'Tersedia' ? '#E8F5E9' : '#FFF3E0' }]}>
-            <Text style={[styles.statusText, { color: item.status === 'Tersedia' ? '#2E7D32' : '#EF6C00' }]}>{item.status}</Text>
+          <Text style={styles.assetName} numberOfLines={1}>{item.nama_barang}</Text>
+          <View style={[
+            styles.statusBadge, 
+            { backgroundColor: item.status_ketersediaan === 'tersedia' ? '#E8F5E9' : '#FFF3E0' }
+          ]}>
+            <Text style={[
+              styles.statusText, 
+              { color: item.status_ketersediaan === 'tersedia' ? '#2E7D32' : '#EF6C00' }
+            ]}>
+              {item.status_ketersediaan?.toUpperCase()}
+            </Text>
           </View>
         </View>
-        <Text style={styles.assetKode}>{item.kode}</Text>
-        <View style={styles.locationContainer}><Ionicons name="location-outline" size={14} color="#666" /><Text style={styles.locationText}>{item.lokasi}</Text></View>
+        <Text style={styles.assetKode}>{item.kode_barcode}</Text>
+        <View style={styles.locationContainer}>
+          <Ionicons name="pricetag-outline" size={14} color="#666" />
+          <Text style={styles.locationText}>
+            {item.kategori?.nama_kategori || "Tanpa Kategori"} • {item.kondisi}
+          </Text>
+        </View>
       </View>
       <Ionicons name="chevron-forward" size={20} color="#CCC" />
     </TouchableOpacity>
@@ -36,120 +97,79 @@ export default function DataAset() {
           <Text style={styles.pageTitle}>Daftar Aset</Text>
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={18} color="#999" />
-            <TextInput style={styles.searchInput} placeholder="Cari aset..." value={search} onChangeText={setSearch} />
+            <TextInput 
+              style={styles.searchInput} 
+              placeholder="Cari nama barang..." 
+              value={search} 
+              onChangeText={setSearch} 
+            />
           </View>
         </View>
       </SafeAreaView>
 
       <FlatList
-        data={DUMMY_ASSETS.filter(a => a.nama.toLowerCase().includes(search.toLowerCase()))}
-        keyExtractor={(item) => item.id}
+        data={assets}
+        keyExtractor={(item) => item.aset_id.toString()}
         renderItem={renderAssetItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={fetchAssets} colors={["#007AFF"]} />
+        }
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="search-outline" size={50} color="#CCC" />
+              <Text style={styles.emptyText}>Aset tidak ditemukan</Text>
+            </View>
+          ) : null
+        }
       />
-      <TouchableOpacity style={styles.fab}><Ionicons name="add" size={30} color="#fff" /></TouchableOpacity>
+
+      {/* 3. FAB DENGAN ONPRESS KE TAMBAH ASET */}
+      {user?.role === "admin" && (
+        <TouchableOpacity 
+          style={styles.fab} 
+          activeOpacity={0.8}
+          onPress={() => router.push("/tambah-aset")}
+        >
+          <Ionicons name="add" size={30} color="#fff" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8F9FA"
+  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  headerSafeArea: { backgroundColor: "#fff", borderBottomWidth: 1, borderColor: "#EEE" },
+  headerContent: { paddingHorizontal: 20, paddingVertical: 15, minHeight: 95 },
+  pageTitle: { fontSize: 22, fontWeight: "bold", color: "#1A1A1A", marginBottom: 10 },
+  searchContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#F1F3F5", borderRadius: 12, paddingHorizontal: 12, height: 45 },
+  searchInput: { flex: 1, marginLeft: 10, fontSize: 15 },
+  listContent: { padding: 20, paddingBottom: 100 },
+  assetCard: { backgroundColor: "#fff", borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "center", marginBottom: 12, elevation: 2 },
+  imagePlaceholder: { width: 60, height: 60, borderRadius: 12, backgroundColor: "#F0F7FF", justifyContent: "center", alignItems: "center" },
+  assetInfo: { flex: 1, marginLeft: 15 },
+  assetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: 'center' },
+  assetName: { fontSize: 16, fontWeight: "bold", color: "#333", flex: 1, marginRight: 5 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  statusText: { fontSize: 9, fontWeight: "bold" },
+  assetKode: { fontSize: 12, color: "#007AFF", fontWeight: '600', marginVertical: 2 },
+  locationContainer: { flexDirection: "row", alignItems: "center", marginTop: 2 },
+  locationText: { fontSize: 12, color: "#666", marginLeft: 4 },
+  fab: { 
+    position: "absolute", 
+    right: 20, 
+    bottom: 20, 
+    backgroundColor: "#007AFF", 
+    width: 60, 
+    height: 60, 
+    borderRadius: 30, 
+    justifyContent: "center", 
+    alignItems: "center", 
+    elevation: 5 
   },
-  headerSafeArea: {
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderColor: "#EEE"
-  },
-  headerContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    minHeight: 90,
-    justifyContent: 'center'
-  },
-  pageTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#1A1A1A",
-    marginBottom: 8
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F1F3F5",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    height: 38
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14
-  },
-  listContent: {
-    padding: 20,
-    paddingBottom: 100
-  },
-  assetCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-    elevation: 2
-  },
-  assetImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 10
-  },
-  assetInfo: {
-    flex: 1,
-    marginLeft: 15
-  },
-  assetHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between"
-  },
-  assetName: {
-    fontSize: 16,
-    fontWeight: "bold"
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: "bold"
-  },
-  assetKode: {
-    fontSize: 12,
-    color: "#007AFF",
-    marginVertical: 2
-  },
-  locationContainer: {
-    flexDirection: "row",
-    alignItems: "center"
-  },
-  locationText: {
-    fontSize: 12,
-    color: "#666",
-    marginLeft: 4
-  },
-  fab: {
-    position: "absolute",
-    right: 20, bottom: 20,
-    backgroundColor: "#007AFF",
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 5
-  },
+  emptyState: { alignItems: "center", marginTop: 100 },
+  emptyText: { color: "#999", marginTop: 10, fontSize: 16 }
 });

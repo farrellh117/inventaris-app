@@ -1,6 +1,6 @@
-import { createContext, ReactNode, useContext, useState, useEffect } from "react";
-import { supabase } from "../lib/supabase/client";
 import { Session } from "@supabase/supabase-js";
+import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { supabase } from "../lib/supabase/client";
 
 export interface UserProfile {
   id: string;
@@ -25,15 +25,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-
+  
   // Fungsi untuk mengambil data profil tambahan dari tabel public.users
   const fetchProfile = async (userId: string, email?: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error, status } = await supabase
         .from("users")
         .select("*")
         .eq("user_id", userId)
         .single();
+        
+        if (error) {
+          console.error("Error Code:", error.code); // Contoh: 'PGRST116' (no rows) atau '42501' (RLS violation)
+          console.error("Error Message:", error.message);
+          console.log("HTTP Status:", status);
+        }
 
       if (!error && data) {
         setUser({

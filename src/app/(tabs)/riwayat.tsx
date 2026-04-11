@@ -1,25 +1,39 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "../../lib/supabase/client";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
+import { supabase } from "../../lib/supabase/client";
 
 export default function Riwayat() {
   const { user } = useAuth();
+
+  // console.log("DEBUG ROLE USER:", user?.role);
+  // console.log("DEBUG ID USER:", user?.id);
+
   const [activeTab, setActiveTab] = useState<"dipinjam" | "selesai">("dipinjam");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [dataRiwayat, setDataRiwayat] = useState<any[]>([]);
 
-  // Menggunakan useCallback untuk menghindari warning dependency dan re-render tidak perlu
   const fetchRiwayat = useCallback(async () => {
+    // Pastikan user id ada sebelum memanggil database
     if (!user?.id) return;
     
     setLoading(true);
     try {
+      // Sesuai dengan CHECK di SQL kamu: dipinjam, dikembalikan, terlambat
       const statusFilter = activeTab === "dipinjam" ? "dipinjam" : "dikembalikan";
       
-      const { data, error } = await supabase
+      let query = supabase
         .from("peminjaman")
         .select(`
           transaksi_id,
@@ -27,36 +41,49 @@ export default function Riwayat() {
           tanggal_rencana_kembali,
           status_peminjaman,
           aset (
-            nama_barang,
+            nama_barang, 
             kode_barcode
+          ),
+          users!peminjaman_user_id_fkey (
+            nama_lengkap
           )
         `)
-        .eq("user_id", user?.id)
         .eq("status_peminjaman", statusFilter)
         .order("tanggal_peminjaman", { ascending: false });
+        
+      // Jika bukan admin, filter hanya data milik user ini
+      if (user?.role !== 'admin') {
+        query = query.eq("user_id", user?.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setDataRiwayat(data || []);
-    } catch (error) {
-      console.error("Error fetching riwayat:", error);
+
+    } catch (error: any) {
+      console.error("Error fetching riwayat:", error.message);
+      Alert.alert("Kesalahan Sistem", "Gagal mengambil data riwayat. Pastikan koneksi stabil.");
     } finally {
       setLoading(false);
     }
-  }, [activeTab, user?.id]); // Dependency fungsi fetch
+  }, [activeTab, user?.id, user?.role]);
 
   useEffect(() => {
     fetchRiwayat();
-  }, [fetchRiwayat]); // Sekarang fetchRiwayat aman masuk sini
+  }, [fetchRiwayat]);
 
-  // Helper untuk merapikan format tanggal (YYYY-MM-DD -> DD MMM YYYY)
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
-    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
-    return new Date(dateString).toLocaleDateString('id-ID', options);
+    return new Date(dateString).toLocaleDateString('id-ID', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    });
   };
 
   const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity style={styles.card} activeOpacity={0.7}>
+    <View style={styles.card}>
       <View style={[styles.cardIcon, { backgroundColor: activeTab === "dipinjam" ? "#FFF3E0" : "#E8F5E9" }]}>
         <Ionicons 
           name={activeTab === "dipinjam" ? "time" : "checkmark-circle"} 
@@ -66,40 +93,50 @@ export default function Riwayat() {
       </View>
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
-          <Text style={styles.asetName} numberOfLines={1}>{item.aset?.nama_barang || "Aset Tidak Diketahui"}</Text>
+          <Text style={styles.asetName} numberOfLines={1}>
+            {item.aset?.nama_barang || "Aset Tidak Terdaftar"}
+          </Text>
           <View style={[styles.statusBadge, { backgroundColor: activeTab === "dipinjam" ? "#FFF9F0" : "#F2FBF4" }]}>
             <Text style={[styles.statusText, { color: activeTab === "dipinjam" ? "#FF9500" : "#34C759" }]}>
-              {activeTab === "dipinjam" ? "Aktif" : "Selesai"}
+              {item.status_peminjaman?.toUpperCase()}
             </Text>
           </View>
         </View>
-        <Text style={styles.kodeText}>{item.aset?.kode_barcode}</Text>
+        
+        {/* Nama Peminjam (Muncul jika login sebagai admin) */}
+        {user?.role === 'admin' && item.users && (
+          <Text style={styles.borrowerName}>Oleh: {item.users.nama_lengkap}</Text>
+        )}
+        
+        <Text style={styles.kodeText}>{item.aset?.kode_barcode || "-"}</Text>
         
         <View style={styles.dateRow}>
           <Ionicons name="calendar-outline" size={14} color="#666" />
           <Text style={styles.dateText}>
-            {activeTab === "dipinjam" ? "Batas Kembali: " : "Dipinjam: "}
+            {activeTab === "dipinjam" ? "Batas: " : "Pinjam: "}
             <Text style={{ fontWeight: '600', color: '#333' }}>
               {formatDate(activeTab === "dipinjam" ? item.tanggal_rencana_kembali : item.tanggal_peminjaman)}
             </Text>
           </Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   return (
     <View style={styles.container}>
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
         <View style={styles.headerContent}>
-          <Text style={styles.pageTitle}>Riwayat Saya</Text>
+          <Text style={styles.pageTitle}>
+            {user?.role === 'admin' ? "Riwayat Global" : "Riwayat Saya"}
+          </Text>
           
           <View style={styles.tabBar}>
             <TouchableOpacity 
               style={[styles.tabButton, activeTab === "dipinjam" && styles.tabActive]}
               onPress={() => setActiveTab("dipinjam")}
             >
-              <Text style={[styles.tabText, activeTab === "dipinjam" && styles.tabTextActive]}>Sedang Dipinjam</Text>
+              <Text style={[styles.tabText, activeTab === "dipinjam" && styles.tabTextActive]}>Dipinjam</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -112,167 +149,58 @@ export default function Riwayat() {
         </View>
       </SafeAreaView>
 
-      {loading && dataRiwayat.length === 0 ? (
-        <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
-      ) : (
-        <FlatList
-          data={dataRiwayat}
-          keyExtractor={(item) => item.transaksi_id.toString()}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl 
-              refreshing={loading} 
-              onRefresh={fetchRiwayat} 
-              colors={["#007AFF"]} 
-              tintColor="#007AFF" 
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="list-outline" size={60} color="#CCC" />
-              <Text style={styles.emptyTitle}>Tidak ada data</Text>
-              <Text style={styles.emptySub}>
-                Belum ada riwayat {activeTab === "dipinjam" ? "peminjaman aktif" : "pengembalian"} untuk akunmu.
-              </Text>
+      <FlatList
+        data={dataRiwayat}
+        keyExtractor={(item) => item.transaksi_id.toString()}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={loading && dataRiwayat.length > 0} onRefresh={fetchRiwayat} colors={["#007AFF"]} />
+        }
+        ListEmptyComponent={
+          loading && dataRiwayat.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#007AFF" />
+              <Text style={{marginTop: 10, color: '#999'}}>Sinkronisasi data...</Text>
             </View>
-          }
-        />
-      )}
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="receipt-outline" size={70} color="#DDD" />
+              <Text style={styles.emptyTitle}>Kosong</Text>
+              <Text style={styles.emptySub}>Tidak ditemukan riwayat peminjaman {activeTab}.</Text>
+            </View>
+          )
+        }
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8F9FA"
-  },
-  headerSafeArea: {
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderColor: "#EEE"
-  },
-  headerContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    minHeight: 110, // Sedikit lebih tinggi untuk menampung title + tabs
-    justifyContent: 'center'
-  },
-  pageTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#1A1A1A",
-    marginBottom: 12
-  },
-  tabBar: {
-    flexDirection: "row",
-    backgroundColor: "#F1F3F5",
-    borderRadius: 12,
-    padding: 4
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: "center",
-    borderRadius: 10
-  },
-  tabActive: {
-    backgroundColor: "#FFF",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 3
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#666"
-  },
-  tabTextActive: {
-    color: "#007AFF",
-  },
-  listContent: {
-    padding: 20,
-    paddingBottom: 40
-  },
-  card: {
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    padding: 15,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-  },
-  cardIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15
-  },
-  cardContent: {
-    flex: 1,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2
-  },
-  asetName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#1A1A1A",
-    flex: 1,
-    marginRight: 10
-  },
-  kodeText: {
-    fontSize: 12,
-    color: "#007AFF",
-    fontWeight: '500',
-    marginBottom: 6
-  },
-  dateRow: {
-    flexDirection: "row",
-    alignItems: "center"
-  },
-  dateText: {
-    fontSize: 12,
-    color: "#666",
-    marginLeft: 6
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: "bold"
-  },
-  emptyState: {
-    alignItems: "center",
-    marginTop: 80
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#444",
-    marginTop: 15
-  },
-  emptySub: {
-    fontSize: 14,
-    color: "#999",
-    textAlign: "center",
-    paddingHorizontal: 40,
-    marginTop: 5
-  },
+  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  headerSafeArea: { backgroundColor: "#fff", borderBottomWidth: 1, borderColor: "#EEE" },
+  headerContent: { paddingHorizontal: 20, paddingVertical: 15 },
+  pageTitle: { fontSize: 22, fontWeight: "bold", color: "#1A1A1A", marginBottom: 15 },
+  tabBar: { flexDirection: "row", backgroundColor: "#F1F3F5", borderRadius: 12, padding: 4 },
+  tabButton: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 10 },
+  tabActive: { backgroundColor: "#FFF", elevation: 2 },
+  tabText: { fontSize: 13, fontWeight: "600", color: "#666" },
+  tabTextActive: { color: "#007AFF" },
+  listContent: { padding: 20, paddingBottom: 50 },
+  card: { backgroundColor: "#FFF", borderRadius: 16, padding: 15, flexDirection: "row", marginBottom: 12, elevation: 1 },
+  cardIcon: { width: 48, height: 48, borderRadius: 12, justifyContent: "center", alignItems: "center", marginRight: 15 },
+  cardContent: { flex: 1 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  asetName: { fontSize: 16, fontWeight: "bold", color: "#333", flex: 1, marginRight: 10 },
+  borrowerName: { fontSize: 12, color: "#007AFF", marginTop: 2, fontWeight: '600' },
+  kodeText: { fontSize: 11, color: "#888", marginTop: 4 },
+  dateRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },
+  dateText: { fontSize: 12, color: "#666", marginLeft: 6 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  statusText: { fontSize: 9, fontWeight: "bold" },
+  loadingContainer: { alignItems: "center", marginTop: 50 },
+  emptyState: { alignItems: "center", marginTop: 100 },
+  emptyTitle: { fontSize: 18, fontWeight: "bold", color: "#444", marginTop: 15 },
+  emptySub: { fontSize: 14, color: "#999", textAlign: "center", marginTop: 5, paddingHorizontal: 40 },
 });
