@@ -1,27 +1,30 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-  Image,
-  Dimensions,
-} from "react-native";
-import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "../lib/supabase/client";
-import { useAuth } from "../context/AuthContext";
 import { Picker } from "@react-native-picker/picker";
-import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as Print from 'expo-print';
+import { useRouter } from "expo-router";
 import * as Sharing from 'expo-sharing';
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase/client";
 // Library Kamera Baru
+import { decode } from 'base64-arraybuffer';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as FileSystem from 'expo-file-system/legacy';
+// Jika versi terbaru, gunakan ini:
 
 const { width } = Dimensions.get("window");
 
@@ -133,20 +136,38 @@ export default function TambahAset() {
 
   const uploadImageToSupabase = async (uri: string) => {
     try {
-      const fileName = `img_${Date.now()}.jpg`;
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      
-      const { error } = await supabase.storage
-        .from("aset_images")
-        .upload(fileName, blob, { contentType: "image/jpeg" });
+    // 1. Ambil ekstensi file
+    const fileName = uri.split('/').pop() || 'temp_file';
+    const fileExt = fileName.split('.').pop()?.toLowerCase() || 'jpg';
+    
+    // 2. Tentukan path di bucket (folder barang/)
+    const path = `barang/${Date.now()}.${fileExt}`;
 
-      if (error) throw error;
-      
-      const { data } = supabase.storage.from("aset_images").getPublicUrl(fileName);
-      return data.publicUrl;
-    } catch (e) {
-      return null;
+    // 3. Baca file sebagai string Base64 (Cara paling stabil di Expo)
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    // 4. Upload ke Supabase menggunakan ArrayBuffer
+    // Ini jauh lebih aman daripada mengirimkan format Blob/File langsung
+    const { data, error } = await supabase.storage
+      .from('inventory') // Pastikan nama bucket sesuai
+      .upload(path, decode(base64), {
+        contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+        upsert: true
+      });
+
+    if (error) throw error;
+
+    // 5. Ambil URL Publik untuk disimpan ke database
+    const { data: urlData } = supabase.storage
+      .from('inventory')
+      .getPublicUrl(path);
+
+    return urlData.publicUrl;
+    } catch (error) {
+    console.error('Upload Process Error:', error);
+    throw error;
     }
   };
 
@@ -250,7 +271,6 @@ export default function TambahAset() {
         <Text style={styles.label}>Nama Barang *</Text>
         <TextInput 
           style={styles.input} 
-          placeholder="Misal: Laptop ASUS ROG" 
           value={form.nama_barang} 
           onChangeText={(txt) => setForm({ ...form, nama_barang: txt })} 
         />

@@ -127,9 +127,12 @@ export default function Pengembalian() {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {!activeLoan ? (
-          <TouchableOpacity style={styles.scanButton} onPress={() => setIsScanning(true)}>
+          <TouchableOpacity
+            style={styles.scanButton}
+            onPress={() => setIsScanning(true)}
+          >
             <View style={styles.scanIconCircle}>
-              <Ionicons name="barcode-outline" size={40} color="#007AFF" />
+              <Ionicons name="qr-code-outline" size={40} color="#007AFF" />
             </View>
             <Text style={styles.scanBtnText}>Scan Barcode Barang</Text>
           </TouchableOpacity>

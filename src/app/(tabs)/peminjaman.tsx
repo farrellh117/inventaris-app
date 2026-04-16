@@ -111,16 +111,21 @@ export default function Peminjaman() {
     <View style={styles.container}>
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
         <View style={styles.headerContent}>
-          <Text style={styles.pageTitle}>Pinjam Aset</Text>
-          <Text style={styles.subtitle}>Oleh: {user?.nama_lengkap || "User"}</Text>
+          <Text style={styles.pageTitle}>Peminjaman</Text>
+          <Text style={styles.subtitle}>Proses peminjaman aset baru</Text>
         </View>
       </SafeAreaView>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {!scannedAset ? (
-          <TouchableOpacity style={styles.scanPlaceholder} onPress={() => setIsScanning(true)}>
-            <Ionicons name="qr-code-outline" size={50} color="#007AFF" />
-            <Text style={styles.scanPlaceholderText}>Tap untuk Scan Barcode</Text>
+          <TouchableOpacity
+            style={styles.scanButton}
+            onPress={() => setIsScanning(true)}
+          >
+            <View style={styles.scanIconCircle}>
+              <Ionicons name="qr-code-outline" size={40} color="#007AFF" />
+            </View>
+            <Text style={styles.scanBtnText}>Scan Barcode Barang</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.asetInfoCard}>
@@ -184,15 +189,17 @@ const styles = StyleSheet.create({
     borderColor: "#EEE"
   },
   headerContent: {
-    padding: 20
+    paddingHorizontal: 20,
+    paddingVertical: 15,
   },
   pageTitle: {
     fontSize: 22,
-    fontWeight: "bold"
+    fontWeight: "bold",
+    color: "#1A1A1A",
   },
   subtitle: {
     color: "#666",
-    fontSize: 14
+    fontSize: 13
   },
   scrollContent: {
     padding: 20
@@ -206,9 +213,9 @@ const styles = StyleSheet.create({
     bottom: 50,
     alignSelf: 'center'
   },
-  scanPlaceholder: { 
-    backgroundColor: "white",
-    padding: 40,
+  scanButton: { 
+    backgroundColor: "#fff",
+    padding: 30,
     borderRadius: 20, 
     alignItems: "center",
     borderStyle: 'dashed',
@@ -216,10 +223,18 @@ const styles = StyleSheet.create({
     borderColor: '#007AFF',
     marginBottom: 20
   },
-  scanPlaceholderText: {
-    marginTop: 10,
+  scanIconCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "#E8F5FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  scanBtnText: {
     color: '#007AFF',
-    fontWeight: 'bold'
+    fontWeight: '600'
   },
   asetInfoCard: {
     backgroundColor: '#E3F2FD',

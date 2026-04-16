@@ -7,18 +7,17 @@ import {
   TextInput, 
   TouchableOpacity, 
   ActivityIndicator, 
-  RefreshControl 
+  RefreshControl,
+  Image 
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/src/lib/supabase/client";
 import { useAuth } from "@/src/context/AuthContext";
-// 1. IMPORT SUDAH BENAR DI SINI
 import { useRouter } from "expo-router";
 
 export default function DataAset() {
   const { user } = useAuth(); 
-  // 2. DEFINISI ROUTER YANG BENAR
   const router = useRouter();
 
   const [search, setSearch] = useState("");
@@ -59,10 +58,29 @@ export default function DataAset() {
   }, [search, fetchAssets]);
 
   const renderAssetItem = ({ item }: any) => (
-    <TouchableOpacity style={styles.assetCard} activeOpacity={0.7}>
-      <View style={styles.imagePlaceholder}>
-        <Ionicons name="cube-outline" size={30} color="#007AFF" />
+    <TouchableOpacity
+      style={styles.assetCard}
+      activeOpacity={0.7}
+      onPress={() => router.push({
+        pathname: "/detail-aset",
+        params: { id: item.aset_id }
+      })}
+    >
+      
+      <View style={styles.imageContainer}>
+        {item.image_url ? (
+          <Image 
+            source={{ uri: item.image_url }} 
+            style={styles.assetImage} 
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <Ionicons name="cube-outline" size={30} color="#007AFF" />
+          </View>
+        )}
       </View>
+
       <View style={styles.assetInfo}>
         <View style={styles.assetHeader}>
           <Text style={styles.assetName} numberOfLines={1}>{item.nama_barang}</Text>
@@ -126,7 +144,7 @@ export default function DataAset() {
         }
       />
 
-      {/* 3. FAB DENGAN ONPRESS KE TAMBAH ASET */}
+      {/* Tombol FAB untuk Admin */}
       {user?.role === "admin" && (
         <TouchableOpacity 
           style={styles.fab} 
@@ -149,7 +167,28 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, marginLeft: 10, fontSize: 15 },
   listContent: { padding: 20, paddingBottom: 100 },
   assetCard: { backgroundColor: "#fff", borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "center", marginBottom: 12, elevation: 2 },
-  imagePlaceholder: { width: 60, height: 60, borderRadius: 12, backgroundColor: "#F0F7FF", justifyContent: "center", alignItems: "center" },
+  
+  // Styling Gambar & Placeholder
+  imageContainer: { 
+    width: 60, 
+    height: 60, 
+    borderRadius: 12, 
+    backgroundColor: "#F0F7FF", 
+    overflow: 'hidden', // Penting agar gambar tidak keluar dari radius border
+    justifyContent: "center", 
+    alignItems: "center" 
+  },
+  assetImage: { 
+    width: '100%', 
+    height: '100%' 
+  },
+  imagePlaceholder: { 
+    width: '100%', 
+    height: '100%', 
+    justifyContent: "center", 
+    alignItems: "center" 
+  },
+
   assetInfo: { flex: 1, marginLeft: 15 },
   assetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: 'center' },
   assetName: { fontSize: 16, fontWeight: "bold", color: "#333", flex: 1, marginRight: 5 },

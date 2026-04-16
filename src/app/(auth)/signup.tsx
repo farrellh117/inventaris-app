@@ -22,6 +22,7 @@ export default function SignupScreen() {
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   const router = useRouter();
   const { signUp } = useAuth();
@@ -38,7 +39,6 @@ export default function SignupScreen() {
     try {
       await signUp(email, password, username, fullName);
       Alert.alert("Sukses", "Akun berhasil dibuat!");
-      // Navigasi akan otomatis diurus oleh _layout.tsx karena status 'user' berubah
     } catch (error: any) {
       Alert.alert("Gagal", error.message || "Terjadi kesalahan");
     } finally {
@@ -98,14 +98,26 @@ export default function SignupScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Minimal 6 karakter..."
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={true}
-                autoCapitalize="none"
-              />
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Minimal 6 karakter..."
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity 
+                  style={styles.eyeIcon} 
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons 
+                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                    size={22} 
+                    color="#888" 
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <TouchableOpacity 
@@ -188,6 +200,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E9ECEF",
     fontSize: 15,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: "#f8f9fa",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E9ECEF",
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 14,
+    fontSize: 15,
+  },
+  eyeIcon: {
+    paddingHorizontal: 15,
   },
   button: {
     backgroundColor: "#007AFF",
