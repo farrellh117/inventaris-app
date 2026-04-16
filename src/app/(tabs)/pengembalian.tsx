@@ -66,17 +66,27 @@ export default function Pengembalian() {
     if (!activeLoan) return;
     setLoading(true);
     try {
+      // Menggunakan catatan_pengembalian (Sudah diupdate dari catatan_admin)
       const { error } = await supabase.from("pengembalian").insert([
         {
           transaksi_id: activeLoan.transaksi_id,
           aset_id: activeLoan.aset_id,
           user_id: user?.id,
           kondisi_kembali: condition,
-          catatan_admin: notes
+          catatan_pengembalian: notes 
         }
       ]);
       if (error) throw error;
-      Alert.alert("Berhasil", "Aset telah dikembalikan ke inventaris.", [
+
+      await supabase.from("riwayat").insert([
+        {
+          user_id: user?.id,
+          jenis_aktivitas: "Pengembalian",
+          keterangan: `Aset: ${activeLoan.nama_barang}. Kondisi: ${condition}. Catatan: ${notes || '-'}`
+        }
+      ]);
+
+      Alert.alert("Berhasil", "Aset telah dikembalikan.", [
         { text: "OK", onPress: () => {
           setActiveLoan(null);
           setNotes("");
@@ -114,10 +124,7 @@ export default function Pengembalian() {
           </View>
         </SafeAreaView>
 
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           {!activeLoan ? (
             <TouchableOpacity style={styles.scanButton} onPress={() => setIsScanning(true)}>
               <View style={styles.scanIconCircle}>
@@ -157,11 +164,11 @@ export default function Pengembalian() {
               ))}
             </View>
 
-            <Text style={styles.label}>Catatan Kondisi (Opsional)</Text>
+            <Text style={styles.label}>Catatan Pengembalian (Opsional)</Text>
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
-                placeholder="Contoh: Lecet sedikit di bagian bodi"
+                placeholder="Berikan keterangan kondisi barang..."
                 multiline
                 numberOfLines={3}
                 value={notes}

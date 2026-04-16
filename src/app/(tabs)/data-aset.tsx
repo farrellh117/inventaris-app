@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/src/lib/supabase/client";
 import { useAuth } from "@/src/context/AuthContext";
-import { useRouter, useFocusEffect } from "expo-router"; // Ditambahkan useFocusEffect
+import { useRouter, useFocusEffect } from "expo-router";
 
 export default function DataAset() {
   const { user } = useAuth(); 
@@ -39,7 +39,6 @@ export default function DataAset() {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
       setAssets(data || []);
     } catch (error) {
@@ -49,19 +48,20 @@ export default function DataAset() {
     }
   }, [search]);
 
-  // Logic agar data reload saat halaman ini "dilihat" kembali oleh user
+  // Refresh data setiap kali tab "Aset" ditekan
   useFocusEffect(
     useCallback(() => {
       fetchAssets();
     }, [fetchAssets])
   );
 
+  // Debounce search agar tidak terlalu sering hit database saat mengetik
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       fetchAssets();
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [search, fetchAssets]);
+  }, [search]);
 
   const renderAssetItem = ({ item }: any) => (
     <TouchableOpacity

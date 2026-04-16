@@ -2,9 +2,9 @@ import { useAuth } from "@/src/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Text, View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react"; 
 import { supabase } from "@/src/lib/supabase/client";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 
 export default function Index() {
   const { user } = useAuth();
@@ -31,7 +31,6 @@ export default function Index() {
         .select('*', { count: 'exact', head: true })
         .eq('status_ketersediaan', 'dipinjam');
 
-      // 3. Hitung Tersedia
       const total = totalCount || 0;
       const dipinjam = borrowedCount || 0;
       
@@ -47,9 +46,12 @@ export default function Index() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+  // Memicu refresh otomatis setiap kali tab Home ditekan/dilihat
+  useFocusEffect(
+    useCallback(() => {
+      fetchStats();
+    }, [fetchStats])
+  );
 
   const statItems = [
     { label: "Total Aset", value: stats.total.toString(), icon: "cube", color: "#007AFF" },
@@ -111,7 +113,6 @@ export default function Index() {
             <Text style={styles.actionText}>Scan Barcode</Text>
           </TouchableOpacity>
 
-          {/* Hanya tampilkan Tambah Aset jika user adalah Admin */}
           {user?.role === 'admin' && (
             <TouchableOpacity
               style={styles.actionButton}
@@ -125,7 +126,7 @@ export default function Index() {
           )}
         </View>
 
-        {/* RECENT ACTIVITY */}
+        {/* INFO SISTEM */}
         <Text style={styles.sectionTitle}>Info Sistem</Text>
         <View style={styles.recentList}>
           <View style={styles.infoBox}>
