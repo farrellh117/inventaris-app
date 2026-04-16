@@ -6,7 +6,6 @@ import {
   FlatList, 
   TextInput, 
   TouchableOpacity, 
-  ActivityIndicator, 
   RefreshControl,
   Image 
 } from "react-native";
@@ -14,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/src/lib/supabase/client";
 import { useAuth } from "@/src/context/AuthContext";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router"; // Ditambahkan useFocusEffect
 
 export default function DataAset() {
   const { user } = useAuth(); 
@@ -50,6 +49,13 @@ export default function DataAset() {
     }
   }, [search]);
 
+  // Logic agar data reload saat halaman ini "dilihat" kembali oleh user
+  useFocusEffect(
+    useCallback(() => {
+      fetchAssets();
+    }, [fetchAssets])
+  );
+
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       fetchAssets();
@@ -66,7 +72,6 @@ export default function DataAset() {
         params: { id: item.aset_id }
       })}
     >
-      
       <View style={styles.imageContainer}>
         {item.image_url ? (
           <Image 
@@ -144,7 +149,6 @@ export default function DataAset() {
         }
       />
 
-      {/* Tombol FAB untuk Admin */}
       {user?.role === "admin" && (
         <TouchableOpacity 
           style={styles.fab} 
@@ -167,28 +171,9 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, marginLeft: 10, fontSize: 15 },
   listContent: { padding: 20, paddingBottom: 100 },
   assetCard: { backgroundColor: "#fff", borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "center", marginBottom: 12, elevation: 2 },
-  
-  // Styling Gambar & Placeholder
-  imageContainer: { 
-    width: 60, 
-    height: 60, 
-    borderRadius: 12, 
-    backgroundColor: "#F0F7FF", 
-    overflow: 'hidden', // Penting agar gambar tidak keluar dari radius border
-    justifyContent: "center", 
-    alignItems: "center" 
-  },
-  assetImage: { 
-    width: '100%', 
-    height: '100%' 
-  },
-  imagePlaceholder: { 
-    width: '100%', 
-    height: '100%', 
-    justifyContent: "center", 
-    alignItems: "center" 
-  },
-
+  imageContainer: { width: 60, height: 60, borderRadius: 12, backgroundColor: "#F0F7FF", overflow: 'hidden', justifyContent: "center", alignItems: "center" },
+  assetImage: { width: '100%', height: '100%' },
+  imagePlaceholder: { width: '100%', height: '100%', justifyContent: "center", alignItems: "center" },
   assetInfo: { flex: 1, marginLeft: 15 },
   assetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: 'center' },
   assetName: { fontSize: 16, fontWeight: "bold", color: "#333", flex: 1, marginRight: 5 },
@@ -197,18 +182,7 @@ const styles = StyleSheet.create({
   assetKode: { fontSize: 12, color: "#007AFF", fontWeight: '600', marginVertical: 2 },
   locationContainer: { flexDirection: "row", alignItems: "center", marginTop: 2 },
   locationText: { fontSize: 12, color: "#666", marginLeft: 4 },
-  fab: { 
-    position: "absolute", 
-    right: 20, 
-    bottom: 20, 
-    backgroundColor: "#007AFF", 
-    width: 60, 
-    height: 60, 
-    borderRadius: 30, 
-    justifyContent: "center", 
-    alignItems: "center", 
-    elevation: 5 
-  },
+  fab: { position: "absolute", right: 20, bottom: 20, backgroundColor: "#007AFF", width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center", elevation: 5 },
   emptyState: { alignItems: "center", marginTop: 100 },
   emptyText: { color: "#999", marginTop: 10, fontSize: 16 }
 });

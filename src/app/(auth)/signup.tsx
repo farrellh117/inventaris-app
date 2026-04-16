@@ -28,19 +28,27 @@ export default function SignupScreen() {
   const { signUp } = useAuth();
 
   const handleSignUp = async () => {
-    if (!email || !password || !username || !fullName) {
-      return Alert.alert("Error", "Mohon isi semua kolom!");
+    // Trim input untuk mencegah spasi tak sengaja
+    const cleanEmail = email.trim();
+    const cleanUsername = username.trim();
+    const cleanFullName = fullName.trim();
+
+    if (!cleanEmail || !password || !cleanUsername || !cleanFullName) {
+      return Alert.alert("Perhatian", "Mohon lengkapi semua data pendaftaran.");
     }
     if (password.length < 6) {
-      return Alert.alert("Error", "Password minimal 6 karakter");
+      return Alert.alert("Error", "Password minimal harus 6 karakter.");
     }
 
     setIsLoading(true);
     try {
-      await signUp(email, password, username, fullName);
-      Alert.alert("Sukses", "Akun berhasil dibuat!");
+      await signUp(cleanEmail, password, cleanUsername, cleanFullName);
+      Alert.alert("Sukses", "Akun berhasil dibuat! Silakan masuk.", [
+        { text: "OK", onPress: () => router.push("/(auth)/login") }
+      ]);
     } catch (error: any) {
-      Alert.alert("Gagal", error.message || "Terjadi kesalahan");
+      console.error("Signup Error:", error.message);
+      Alert.alert("Gagal Daftar", error.message || "Terjadi kesalahan saat mendaftar.");
     } finally {
       setIsLoading(false);
     }
@@ -52,11 +60,16 @@ export default function SignupScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"} 
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent} 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <Ionicons name="barcode-outline" size={60} color="#007AFF" />
+              {/* Konsisten menggunakan icon cube/barcode sesuai branding */}
+              <Ionicons name="cube-outline" size={60} color="#007AFF" />
             </View>
             <Text style={styles.title}>Inventory Manager</Text>
             <Text style={styles.subTitle}>Daftar akun mahasiswa baru</Text>
@@ -67,7 +80,7 @@ export default function SignupScreen() {
               <Text style={styles.label}>Nama Lengkap</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Masukkan nama lengkap..."
+                placeholder="Nama sesuai KTM..."
                 value={fullName}
                 onChangeText={setFullName}
               />
@@ -77,7 +90,7 @@ export default function SignupScreen() {
               <Text style={styles.label}>Username</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Buat username unik..."
+                placeholder="Contoh: Budi_IF22"
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
@@ -88,11 +101,12 @@ export default function SignupScreen() {
               <Text style={styles.label}>Email</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Alamat email..."
+                placeholder="name@gmail.com"
                 keyboardType="email-address"
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
 
@@ -101,7 +115,7 @@ export default function SignupScreen() {
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={styles.passwordInput}
-                  placeholder="Minimal 6 karakter..."
+                  placeholder="Buat password aman..."
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
@@ -112,7 +126,7 @@ export default function SignupScreen() {
                   onPress={() => setShowPassword(!showPassword)}
                 >
                   <Ionicons 
-                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                    name={showPassword ? "eye-off" : "eye"} 
                     size={22} 
                     color="#888" 
                   />
@@ -121,14 +135,17 @@ export default function SignupScreen() {
             </View>
 
             <TouchableOpacity 
-              style={[styles.button, isLoading && { opacity: 0.7 }]} 
+              style={[styles.button, isLoading && styles.buttonDisabled]} 
               onPress={handleSignUp} 
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator size={24} color={"#fff"}/>
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color={"#fff"} />
+                  <Text style={styles.loadingText}>Mendaftarkan...</Text>
+                </View>
               ) : (
-                <Text style={styles.buttonText}>Sign Up</Text>
+                <Text style={styles.buttonText}>Signup</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -136,7 +153,7 @@ export default function SignupScreen() {
           <View style={styles.signupContainer}>
             <Text style={styles.signupText}>Sudah punya akun? </Text>
             <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
-              <Text style={styles.signupLink}>Log In</Text>
+              <Text style={styles.signupLink}>Login</Text>
             </TouchableOpacity>
           </View>
           
@@ -169,7 +186,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 15,
-    elevation: 3,
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
+      android: { elevation: 3 }
+    })
   },
   title: {
     fontSize: 24,
@@ -225,10 +245,23 @@ const styles = StyleSheet.create({
     marginTop: 20,
     elevation: 4,
   },
+  buttonDisabled: {
+    opacity: 0.7,
+    backgroundColor: "#A2CFFE",
+  },
   buttonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    marginLeft: 10,
+    fontWeight: 'bold',
   },
   signupContainer: {
     flexDirection: "row",
