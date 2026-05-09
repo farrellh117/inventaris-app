@@ -66,8 +66,27 @@ export default function Pengembalian() {
     if (!activeLoan) return;
     setLoading(true);
     try {
-      // Menggunakan catatan_pengembalian (Sudah diupdate dari catatan_admin)
-      const { error } = await supabase.from("pengembalian").insert([
+      // 1. UPDATE STATUS & KONDISI ASET (Penting!)
+      const { error: asetErr } = await supabase
+        .from("aset")
+        .update({ 
+          status_ketersediaan: "tersedia",
+          kondisi: condition 
+        })
+        .eq("aset_id", activeLoan.aset_id);
+      
+      if (asetErr) throw asetErr;
+
+      // 2. UPDATE STATUS DI TABEL PEMINJAMAN
+      const { error: loanErr } = await supabase
+        .from("peminjaman")
+        .update({ status_peminjaman: "dikembalikan" })
+        .eq("transaksi_id", activeLoan.transaksi_id);
+      
+      if (loanErr) throw loanErr;
+
+      // 3. INSERT KE TABEL PENGEMBALIAN
+      const { error: returnErr } = await supabase.from("pengembalian").insert([
         {
           transaksi_id: activeLoan.transaksi_id,
           aset_id: activeLoan.aset_id,
@@ -76,8 +95,9 @@ export default function Pengembalian() {
           catatan_pengembalian: notes 
         }
       ]);
-      if (error) throw error;
+      if (returnErr) throw returnErr;
 
+      // 4. INSERT KE RIWAYAT
       await supabase.from("riwayat").insert([
         {
           user_id: user?.id,
@@ -162,7 +182,7 @@ export default function Pengembalian() {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </View> 
 
             <Text style={styles.label}>Catatan Pengembalian (Opsional)</Text>
             <View style={styles.inputWrapper}>

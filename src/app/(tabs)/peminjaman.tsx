@@ -66,8 +66,10 @@ export default function Peminjaman() {
         Alert.alert("Error", "Barcode tidak dikenali sistem.");
         return;
       }
+      
+      // LOGIKA: Cek status real-time di database
       if (aset.status_ketersediaan !== "tersedia") {
-        Alert.alert("Gagal", "Aset sedang tidak tersedia.");
+        Alert.alert("Gagal", `Aset ini sedang ${aset.status_ketersediaan}.`);
         return;
       }
       setScannedAset(aset);
@@ -82,19 +84,27 @@ export default function Peminjaman() {
     if (!scannedAset) return Alert.alert("Scan Dulu", "Silakan scan barcode aset.");
     setLoading(true);
     try {
-      // 1. Simpan ke tabel Peminjaman (Sekarang menyertakan catatan_peminjaman)
+      // 1. UPDATE STATUS ASET (Penting: agar akun lain melihat status 'dipinjam')
+      const { error: updateError } = await supabase
+        .from("aset")
+        .update({ status_ketersediaan: "dipinjam" })
+        .eq("aset_id", scannedAset.aset_id);
+
+      if (updateError) throw updateError;
+
+      // 2. INSERT KE TABEL PEMINJAMAN
       const { error: loanError } = await supabase.from("peminjaman").insert([
         {
           user_id: user?.id,
           aset_id: scannedAset.aset_id,
           tanggal_rencana_kembali: date.toISOString(), 
           status_peminjaman: "dipinjam",
-          catatan_peminjaman: catatan, // Menyimpan catatan ke kolom baru
+          catatan_peminjaman: catatan,
         },
       ]);
       if (loanError) throw loanError;
 
-      // 2. Simpan ke Riwayat Aktivitas
+      // 3. INSERT KE RIWAYAT
       await supabase.from("riwayat").insert([
         {
           user_id: user?.id,

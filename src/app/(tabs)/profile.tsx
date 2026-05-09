@@ -85,12 +85,6 @@ export default function ProfileScreen() {
         {/* PENGATURAN SECTION */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Aksi</Text>
-          <TouchableOpacity style={styles.menuItem}>
-            <Ionicons name="help-circle-outline" size={22} color="#444" />
-            <Text style={styles.menuText}>Bantuan & Panduan</Text>
-            <Ionicons name="chevron-forward" size={18} color="#CCC" />
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
             <Text style={styles.logoutText}>Keluar Akun</Text>
@@ -205,22 +199,6 @@ const styles = StyleSheet.create({
     color: "#333",
     marginTop: 2,
   },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    elevation: 1,
-  },
-  menuText: {
-    flex: 1,
-    marginLeft: 15,
-    fontSize: 16,
-    color: "#444",
-    fontWeight: "500",
-  },
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -228,7 +206,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF0F0",
     padding: 16,
     borderRadius: 16,
-    marginTop: 10,
+    marginTop: 5, // Sedikit dikurangi agar jaraknya pas setelah menu dihapus
   },
   logoutText: {
     color: "#FF3B30",
